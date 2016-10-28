@@ -25,7 +25,20 @@ uint8_t L01_ReadSingleReg(uint8_t Addr)
 	transfer(fd,Txbuff,Rxbuff,2);
 	return Rxbuff[1];
 }
-
+void L01_ReadAddReg(uint8_t Addr)
+{
+	int i = 0;
+	Txbuff[0] = R_REGISTER | Addr;
+	for(i = 0; i<5;i++)
+	{
+		Txbuff[i+1] = 0xFF;
+	}
+	transfer(fd,Txbuff,Rxbuff,6);
+	for(i = i; i<6;i++)
+	{
+		printf("%d,",Rxbuff[i]);
+	}
+}
 /*===========================================================================
 * 函数 ：L01_WriteSingleReg() => 写数据到一个寄存器                         * 
 * 输入 ：Addr，写入寄存器的地址，Value，待写入的值                          * 
@@ -43,8 +56,12 @@ void L01_WriteSingleReg(uint8_t Addr, uint8_t Value)
 ============================================================================*/
 void L01_WriteMultiReg(uint8_t StartAddr, uint8_t *pBuff, uint8_t Length)
 {
+	int i = 0;
 	Txbuff[0] = W_REGISTER | StartAddr;
-	memcpy(Txbuff+1,pBuff,Length);
+	for(i = 1;i<=Length;i++)
+	{
+		Txbuff[i] = pBuff[ i - 1];
+	}
 	transfer(fd,Txbuff,Rxbuff,Length+1);
 }
 
@@ -106,7 +123,7 @@ uint8_t L01_ReadTopFIFOWidth(void)
 	Txbuff[0] = R_RX_PL_WID;
 	Txbuff[1] = 0xFF;
 	transfer(fd,Txbuff,Rxbuff,2);
-    	return Rxbuff[1];
+    return Rxbuff[1];
 }
 
 /*===========================================================================
@@ -120,11 +137,17 @@ uint8_t L01_ReadRXPayload(uint8_t *pBuff)
 	PipeNum = (L01_ReadSingleReg(L01REG_STATUS)>>1) & 0x07;
 	width = L01_ReadTopFIFOWidth();
 	Txbuff[0] = R_RX_PAYLOAD;
-	memset(Txbuff+1,0xFF,width);
+	for (PipeNum=0; PipeNum<width; PipeNum++)
+    {
+        *(Txbuff+1+PipeNum) = 0xFF;
+    }
 	transfer(fd,Txbuff,Rxbuff,width+1);
-	memcpy(pBuff,Rxbuff,width);
-    	L01_FlushRX();
-    	return (width);
+	for (PipeNum=0; PipeNum<width; PipeNum++)
+    {
+       *( pBuff + PipeNum)=  *( Rxbuff + 1 +PipeNum);
+    }
+    L01_FlushRX();
+    return (width);
 }
 
 /*===========================================================================
@@ -134,9 +157,13 @@ uint8_t L01_ReadRXPayload(uint8_t *pBuff)
 void L01_WriteTXPayload_Ack(uint8_t *pBuff, uint8_t nBytes)
 {
     uint8_t length = (nBytes>32) ? 32 : nBytes;
+    uint8_t i = 0;
     L01_FlushTX();
     Txbuff[0] = W_TX_PAYLOAD;
-    memcpy(Txbuff+1,pBuff,length);
+    for(i = 0; i <length;i++)
+    {
+		Txbuff[i+1] = *(pBuff + i);
+	}
     transfer(fd,Txbuff,Rxbuff,length+1);
 }
 
@@ -146,10 +173,14 @@ void L01_WriteTXPayload_Ack(uint8_t *pBuff, uint8_t nBytes)
 ============================================================================*/
 void L01_WriteTXPayload_NoAck(uint8_t *Data, uint8_t Data_Length)
 {
+	 uint8_t i = 0;
     if ((Data_Length>32) || (Data_Length==0))   { return; }
         
     Txbuff[0] = W_TX_PAYLOAD_NOACK;
-    memcpy(Txbuff+1,Data,Data_Length);
+    for(i = 0; i <Data_Length;i++)
+    {
+		Txbuff[i+1] = *(Data + i);
+	}
     transfer(fd,Txbuff,Rxbuff,Data_Length+1);
 }
 
@@ -182,7 +213,6 @@ void L01_SetRXAddr(uint8_t PipeNum, uint8_t *pAddr, uint8_t Addr_Length)
 void L01_SetSpeed(L01SPD speed)
 {
 	uint8_t btmp = L01_ReadSingleReg(L01REG_RF_SETUP);
-
 	btmp &= ~((1<<5) | (1<<3));
 	
 	switch (speed)
@@ -243,9 +273,7 @@ void L01_SetTRMode(L01MD mode)
 void L01_Init(void)
 {
     uint8_t addr[5] = { INIT_ADDR };
-
     L01_CE_LOW();
-    usleep(200000);
     L01_ClearIRQ(IRQ_ALL);
     // 使能管道0动态包长度
     L01_WriteSingleReg(L01REG_DYNPD, (1<<0));

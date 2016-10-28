@@ -2,7 +2,7 @@
 static const char *device = "/dev/spidev0.0";
 static unsigned char mode = 0;
 static uint8_t bits = 8;
-static uint32_t speed = 10*1000*1000;
+static uint32_t speed = 8*1000*1000;
 static uint16_t delay = 0;
 int fd = 0;
 static void EXIT()
@@ -36,19 +36,21 @@ static int SPI_Init()
 void RF_Initial(void)
 {
 	L01_Init();             // 初始化L01寄存器
-	L01_SetTRMode(RX_MODE); // 接收模式      
 	L01_FlushRX();          // 复位接收FIFO指针    
   	L01_FlushTX();          // 复位发送FIFO指针
   	L01_ClearIRQ(IRQ_ALL);  // 清除所有中断
+	L01_SetTRMode(RX_MODE); // 接收模式      
+	usleep(200);
   	L01_CE_HIGH();          // CE = 1, 启动接收  
-	//SetL01IRQ();	
 }
 void SystemInitial()
 {
 	fd = SPI_Init();
 	RF_Initial();
 	exportGPIOPin(12);
-	setGPIODirection(12, GPIO_OUT);
+	exportGPIOPin(7);
+	setGPIODirection(12, GPIO_OUT);//CE
+	setGPIODirection(7, GPIO_IN);//IRQ
 }
 void transfer(int fd,uint8_t tx[],uint8_t rx[],uint16_t lenth)
 {

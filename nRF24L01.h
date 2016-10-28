@@ -17,18 +17,13 @@
 
 #define L01_CE_LOW()    setGPIOValue(12, GPIO_LOW)
 #define L01_CE_HIGH()   setGPIOValue(12, GPIO_HIGH)
-
+#define L01_IRQ_READ() getGPIOValue(7)
 typedef unsigned char uint8_t;
-struct SPI_Config{
-	uint32_t CLOCK_MHz;
-	uint8_t SPI_TxLen;
-	uint8_t SPI_RxLen;
-	uint8_t Bit_Order;
-	uint8_t SPI_ComMode;
-};
 // nRF24L01P相关函数接口
 // 初始化L01
 void L01_Init(void);
+
+void L01_ReadAddReg(uint8_t Addr);
 
 // 复位TX FIFO指针      
 void L01_FlushTX(void);
